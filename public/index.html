@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>slashbinslash.sh</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <pre class="ascii-art">
+▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+▒╔══════════╗ ╔═════╗ ╔══════╗ ╔══════╗ ╔════╗ ╔════╗ ╔══════════╗▒
+▒▒║   ╔══╗  ║ ║  ╔══╝ ║  ╔═══╝ ║  ╔═══╝ ║ ╔╗ ║ ║ ╔╗ ║ ║   ╔══╗  ║▒▒
+▒▒▒║   ╚══╝  ╚═╝  ╚══╗ ║  ╚══╗  ║  ╚══╗  ║ ╚╝ ║ ║ ╚╝ ║ ║   ╚══╝  ╚═╗▒▒▒
+▒▒▒▒╚══════════════╗  ║ ║  ╔══╝  ║  ╔══╝  ║    ║ ║    ║ ╚══════════╗║▒▒▒▒
+▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╚══╝ ╚══╝     ╚══╝     ╚════╝ ╚════╝ ▒▒▒▒▒▒▒▒▒▒▒╚╝▒▒▒▒▒
+▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+        </pre
+            >
+            <div class="tagline">~everything is temporary~</div>
+
+            <div class="upload-section">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="file-input">
+                        <input type="file" id="file" name="file" />
+                        <button type="submit">Upload</button>
+                    </div>
+                </form>
+                <div id="result" class="hidden"></div>
+            </div>
+
+            <div class="info-section">
+                <div class="info-block">
+                    <h3>To upload via curl:</h3>
+                    <pre>
+curl -F "file=@yourfile.txt" https://your-domain/upload</pre
+                    >
+                </div>
+
+                <div class="info-block">
+                    <h3>Info:</h3>
+                    <ul>
+                        <li>Files expire after 3 days</li>
+                        <li>Maximum file size: 4GB</li>
+                        <li>No registration required</li>
+                    </ul>
+                </div>
+
+                <div class="info-block">
+                    <p>Inspired by temp.sh, termbin.com, and pomf.se</p>
+                    <p>
+                        Code:
+                        <a
+                            href="https://github.com/yourusername/slashbinslash.sh"
+                            target="_blank"
+                            >GitHub</a
+                        >
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <script src="script.js"></script>
+    </body>
+</html>
