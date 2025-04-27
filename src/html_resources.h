@@ -2,7 +2,7 @@
 #define HTML_RESOURCES_H
 
 // Index HTML content
-static const char *INDEX_HTML =
+static const char * __attribute__((unused)) INDEX_HTML =
 "<!doctype html>\n"
 "<html lang=\"en\">\n"
 "    <head>\n"
@@ -68,7 +68,7 @@ static const char *INDEX_HTML =
 "</html>\n";
 
 // CSS content
-static const char *STYLE_CSS =
+static const char * __attribute__((unused)) STYLE_CSS =
 "body {\n"
 "    background: #000;\n"
 "    color: #aaa;\n"
@@ -202,7 +202,7 @@ static const char *STYLE_CSS =
 "}\n";
 
 // JavaScript content
-static const char *SCRIPT_JS =
+static const char * __attribute__((unused)) SCRIPT_JS =
 "document.addEventListener(\"DOMContentLoaded\", () => {\n"
 "  const form = document.getElementById(\"upload-form\");\n"
 "  const resultDiv = document.getElementById(\"result\");\n"

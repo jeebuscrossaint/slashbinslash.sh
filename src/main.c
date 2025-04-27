@@ -11,12 +11,14 @@
 #include "config.h"
 #include "html_resources.h"
 
-struct MHD_Daemon *daemon;
+struct MHD_Daemon *web_daemon;
 
 // Handle HTTP requests
-static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connection,
+static enum MHD_Result handle_request(void *cls __attribute__((unused)),
+                                    struct MHD_Connection *connection,
                                     const char *url, const char *method,
-                                    const char *version, const char *upload_data,
+                                    const char *version __attribute__((unused)),
+                                    const char *upload_data,
                                     size_t *upload_data_size, void **con_cls) {
 
     // Serve the main page
@@ -48,10 +50,10 @@ int main() {
     mkdir(UPLOAD_DIR, 0755);
 
     // Start the HTTP server
-    daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD, PORT, NULL, NULL,
-                             &handle_request, NULL, MHD_OPTION_END);
+    web_daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD, PORT, NULL, NULL,
+                               &handle_request, NULL, MHD_OPTION_END);
 
-    if (daemon == NULL) {
+    if (web_daemon == NULL) {
         fprintf(stderr, "Failed to start server\n");
         return 1;
     }
@@ -64,7 +66,7 @@ int main() {
     getchar();
 
     // Cleanup
-    MHD_stop_daemon(daemon);
+    MHD_stop_daemon(web_daemon);
 
     return 0;
 }
