@@ -474,3 +474,26 @@ body {
         background-color: #000000;
         color: #00ff00;
     }
+    /* Add this to your existing CSS */
+.file-types {
+        margin-top: 10px;
+        text-align: left;
+    }
+    
+    .file-types ul {
+        list-style-type: none;
+        padding-left: 10px;
+        margin-top: 5px;
+    }
+    
+    .file-types li {
+        margin-bottom: 3px;
+        display: flex;
+        justify-content: space-between;
+        padding: 2px 5px;
+        border-left: 2px solid #004400;
+    }
+    
+    .file-types li:hover {
+        background-color: rgba(0, 255, 0, 0.1);
+    }

@@ -10,65 +10,85 @@ const NC_PORT = 9999; // Port for netcat listener same one as termbin for all th
 const statsPath = path.join(__dirname, 'stats.json');
 
 // Load or initialize statistics
+// Update the default stats structure in loadStats()
 function loadStats() {
-    if (fs.existsSync(statsPath)) {
-        try {
-            return JSON.parse(fs.readFileSync(statsPath, 'utf-8'));
-        } catch (err) {
-            console.error('Error reading stats file:', err);
+        if (fs.existsSync(statsPath)) {
+            try {
+                return JSON.parse(fs.readFileSync(statsPath, 'utf-8'));
+            } catch (err) {
+                console.error('Error reading stats file:', err);
+            }
         }
+        
+        // Enhanced stats structure with storage tracking
+        return {
+            allTime: {
+                uploads: 0,
+                totalSize: 0, // Track total size of all uploads
+                lastUpdated: new Date().toISOString()
+            },
+            last7Days: {
+                uploads: 0,
+                totalSize: 0, // Track size of uploads in last 7 days
+                lastUpdated: new Date().toISOString()
+            },
+            fileTypes: {}, // Track file type distribution
+            dailyStats: []
+        };
     }
-    
-    // Default stats structure
-    return {
-        allTime: {
-            uploads: 0,
-            lastUpdated: new Date().toISOString()
-        },
-        last7Days: {
-            uploads: 0,
-            lastUpdated: new Date().toISOString()
-        },
-        dailyStats: []
-    };
-}
 
 // Save statistics
 function saveStats(stats) {
     fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2));
 }
 
-// Increment upload count
-function recordUpload() {
-    const stats = loadStats();
-    const now = new Date();
-    
-    // Increment all-time counter
-    stats.allTime.uploads++;
-    stats.allTime.lastUpdated = now.toISOString();
-    
-    // Find or create today's entry
-    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    let todayEntry = stats.dailyStats.find(entry => entry.date === todayStr);
-    
-    if (!todayEntry) {
-        todayEntry = { date: todayStr, uploads: 0 };
-        stats.dailyStats.push(todayEntry);
+// Update recordUpload to track file size and type
+function recordUpload(fileSize, fileType) {
+        const stats = loadStats();
+        const now = new Date();
+        
+        // Increment all-time counter
+        stats.allTime.uploads++;
+        stats.allTime.totalSize = (stats.allTime.totalSize || 0) + (fileSize || 0);
+        stats.allTime.lastUpdated = now.toISOString();
+        
+        // Find or create today's entry
+        const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        let todayEntry = stats.dailyStats.find(entry => entry.date === todayStr);
+        
+        if (!todayEntry) {
+            todayEntry = { date: todayStr, uploads: 0, totalSize: 0 };
+            stats.dailyStats.push(todayEntry);
+        }
+        
+        // Update today's entry
+        todayEntry.uploads++;
+        todayEntry.totalSize = (todayEntry.totalSize || 0) + (fileSize || 0);
+        
+        // Track file type statistics
+        if (fileType) {
+            if (!stats.fileTypes) stats.fileTypes = {};
+            stats.fileTypes[fileType] = (stats.fileTypes[fileType] || 0) + 1;
+        }
+        
+        // Cleanup old entries (keep only last 30 days)
+        stats.dailyStats.sort((a, b) => b.date.localeCompare(a.date)); // Sort by date, newest first
+        stats.dailyStats = stats.dailyStats.slice(0, 30); // Keep only last 30 days
+        
+        // Calculate last 7 days
+        const last7Days = stats.dailyStats.slice(0, 7);
+        stats.last7Days.uploads = last7Days.reduce((sum, day) => sum + day.uploads, 0);
+        stats.last7Days.totalSize = last7Days.reduce((sum, day) => sum + (day.totalSize || 0), 0);
+        stats.last7Days.lastUpdated = now.toISOString();
+        
+        saveStats(stats);
     }
     
-    todayEntry.uploads++;
-    
-    // Cleanup old entries (keep only last 30 days)
-    stats.dailyStats.sort((a, b) => b.date.localeCompare(a.date)); // Sort by date, newest first
-    stats.dailyStats = stats.dailyStats.slice(0, 30); // Keep only last 30 days
-    
-    // Calculate last 7 days
-    const last7Days = stats.dailyStats.slice(0, 7);
-    stats.last7Days.uploads = last7Days.reduce((sum, day) => sum + day.uploads, 0);
-    stats.last7Days.lastUpdated = now.toISOString();
-    
-    saveStats(stats);
-}
+    // Helper function to extract file extension
+    function getFileType(fileName) {
+        const ext = fileName.split('.').pop().toLowerCase();
+        return ext || 'unknown';
+    }
 
 function generateShortId(length = 4) {
     // Use more characters than just hex (0-9, a-f) to get shorter IDs
@@ -242,8 +262,8 @@ const ncServer = net.createServer((socket) => {
             // Return a simplified URL like termbin
             const fullUrl = `http://${process.env.HOST || 'localhost'}:${PORT}/${fileId}`;
     
-            recordUpload(); // Increment upload count
-            
+            recordUpload(cleanData.length, 'txt'); // Netcat uploads are always text
+
             // Include the expiry information in the response
             socket.write(`${fullUrl} (expires in ${expiryDays} days)\n`);
             socket.end();
@@ -264,28 +284,31 @@ ncServer.on('error', (err) => {
     console.error(`Netcat server error: ${err.message}`);
 });
 
+// Update the homepage route to remove file types from the stats display
 app.get('/', (req, res) => {
-    const stats = loadStats();
-    
-    // Read the index.html file
-    let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-    
-    // Create the statistics HTML
-    const statsHtml = `
-    <div class="stats-section">
-        <div class="info-box stats-box">
-            <h3>Upload Statistics</h3>
-            <p>All time uploads: <span class="stat-number">${stats.allTime.uploads.toLocaleString()}</span></p>
-            <p>Last 7 days: <span class="stat-number">${stats.last7Days.uploads.toLocaleString()}</span></p>
-            <p class="updated-time">Last updated: ${new Date(stats.allTime.lastUpdated).toLocaleString()}</p>
-        </div>
-    </div>`;
-    
-    // Use a more reliable insertion method
-    html = html.replace(/<\/div>\s*<footer>/, `${statsHtml}\n    </div>\n    <footer>`);
-    
-    res.send(html);
-});
+        const stats = loadStats();
+        
+        // Read the index.html file
+        let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+        
+        // Create simplified statistics HTML without file types
+        const statsHtml = `
+        <div class="stats-section">
+            <div class="info-box stats-box">
+                <h3>Upload Statistics</h3>
+                <p>All time uploads: <span class="stat-number">${stats.allTime.uploads.toLocaleString()}</span></p>
+                <p>Total storage used: <span class="stat-number">${formatSize(stats.allTime.totalSize || 0)}</span></p>
+                <p>Last 7 days: <span class="stat-number">${stats.last7Days.uploads.toLocaleString()}</span> uploads</p>
+                <p>Storage in last 7 days: <span class="stat-number">${formatSize(stats.last7Days.totalSize || 0)}</span></p>
+                <p class="updated-time">Last updated: ${new Date(stats.allTime.lastUpdated).toLocaleString()}</p>
+            </div>
+        </div>`;
+        
+        // Use a more reliable insertion method
+        html = html.replace(/<\/div>\s*<footer>/, `${statsHtml}\n    </div>\n    <footer>`);
+        
+        res.send(html);
+    });
 
 // Serve static files
 app.use(express.static('public'));
@@ -346,7 +369,8 @@ app.post('/upload', (req, res) => {
             console.log(`HTTP upload from ${clientIP} - File: "${req.file.originalname}" (${formatSize(fileSize)}) - ID: ${req.file.fileId} - Agent: ${userAgent}`);
             
             // Record this upload in statistics
-            recordUpload();
+            const fileExt = getFileType(req.file.originalname);
+            recordUpload(req.file.size, fileExt);
             
             // Check if request is from curl (or similar CLI tool)
             const isCommandLine = userAgent.includes('curl') || userAgent.includes('Wget') || req.query.cli === 'true';
