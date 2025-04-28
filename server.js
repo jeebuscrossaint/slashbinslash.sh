@@ -204,10 +204,11 @@ const PORT = process.env.PORT || 3000;
 
 // Configure file storage
 // Configure file storage
+// Configure file storage
 const storage = multer.diskStorage({
         destination: (req, file, cb) => {
-            // Generate a random file ID
-            const fileId = crypto.randomBytes(4).toString('hex');
+            // Generate a short ID just like netcat uses
+            const fileId = generateShortId();
             
             // Attach fileId to the file object so we can access it later
             file.fileId = fileId;
@@ -260,11 +261,10 @@ app.get('/', (req, res) => {
                 <p>Last 7 days: <span class="stat-number">${stats.last7Days.uploads.toLocaleString()}</span></p>
                 <p class="updated-time">Last updated: ${new Date(stats.allTime.lastUpdated).toLocaleString()}</p>
             </div>
-        </div>
-        `;
+        </div>`;
         
-        // Insert the stats HTML before the footer
-        html = html.replace('</div>\n    <footer>', `${statsHtml}\n    </div>\n    <footer>`);
+        // Use a more reliable insertion method
+        html = html.replace(/<\/div>\s*<footer>/, `${statsHtml}\n    </div>\n    <footer>`);
         
         res.send(html);
     });
@@ -272,6 +272,7 @@ app.get('/', (req, res) => {
 // Serve static files
 app.use(express.static('public'));
 
+// Handle file uploads
 // Handle file uploads
 app.post('/upload', (req, res) => {
         upload.single('file')(req, res, (err) => {
@@ -286,11 +287,11 @@ app.post('/upload', (req, res) => {
                 return res.status(400).send('No file uploaded.');
             }
             
-            // Create response data
+            // Create response data - use simpler URL format
             const responseData = {
                 fileId: req.file.fileId,
                 fileName: req.file.originalname,
-                url: `${req.file.fileId}/${encodeURIComponent(req.file.originalname)}`,
+                url: req.file.fileId, // Just use fileId without the filename
                 message: 'File uploaded successfully.'
             };
             
