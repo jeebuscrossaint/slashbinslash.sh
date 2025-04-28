@@ -40,11 +40,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         const url = `${window.location.origin}/${data.url}`;
                         
+                        // Generate QR code
+                        const qrDiv = document.createElement('div');
+                        qrDiv.className = 'qr-code';
+                        
+                        // Generate QR code using the qrcode-generator library
+                        const typeNumber = 0; // Auto-detect size
+                        const errorCorrectionLevel = 'L'; // Low
+                        const qr = window.qrcode(typeNumber, errorCorrectionLevel);
+                        qr.addData(url);
+                        qr.make();
+                        
+                        // Create and style QR code image
+                        const qrImage = qr.createImgTag(5); // Cellsize=5
+                        
                         uploadResult.innerHTML = `
                             File uploaded successfully!<br>
                             URL: <a href="${url}" target="_blank">${url}</a> 
                             <button id="copy-button" class="copy-btn" onclick="copyToClipboard('${url}')">Copy</button><br>
-                            Expires in ${data.expiryDays} days.
+                            Expires in ${data.expiryDays} days.<br>
+                            <div class="qr-container">
+                                <div class="qr-label">Scan QR Code:</div>
+                                ${qrImage}
+                            </div>
                         `;
                         uploadResult.style.color = '#00ff00';
                         fileInput.value = '';

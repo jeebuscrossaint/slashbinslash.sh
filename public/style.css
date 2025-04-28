@@ -497,3 +497,25 @@ body {
     .file-types li:hover {
         background-color: rgba(0, 255, 0, 0.1);
     }
+    /* QR code styling */
+.qr-container {
+        margin-top: 15px;
+        text-align: center;
+        background-color: #000;
+        padding: 10px;
+        border: 1px solid #00ff00;
+        border-radius: 5px;
+        display: inline-block;
+    }
+    
+    .qr-label {
+        margin-bottom: 8px;
+        color: #00ff00;
+        font-size: 0.9em;
+    }
+    
+    .qr-container img {
+        background-color: #fff;
+        padding: 8px;
+        border-radius: 5px;
+    }
