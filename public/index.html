@@ -33,10 +33,14 @@
             
             <div class="web-upload">
                 <h3>Upload through browser:</h3>
-                <form id="upload-form" enctype="multipart/form-data">
-                    <input type="file" id="file-input" name="file">
-                    <button type="submit">Upload</button>
-                </form>
+                <form id="upload-form">
+                        <div class="custom-file-input">
+                            <input type="file" id="file-input" name="file">
+                            <label for="file-input"><span>Select a file...</span></label>
+                        </div>
+                        <div class="file-name" id="selected-file">No file selected</div>
+                        <button type="submit">Upload</button>
+                    </form>
                 <div id="upload-result"></div>
             </div>
         </div>

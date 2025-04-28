@@ -297,3 +297,146 @@
         border-top: 1px dashed #33ff33;
         padding-top: 10px; /* Reduced from 20px */
     }
+
+    /* Custom file input styling */
+.custom-file-input {
+        position: relative;
+        display: inline-block;
+        margin-bottom: 10px;
+        width: 100%;
+    }
+    
+    .custom-file-input input[type="file"] {
+        position: absolute;
+        left: -9999px;
+        opacity: 0;
+        z-index: -1;
+    }
+    
+    .custom-file-input label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background-color: #111;
+        color: #33ff33;
+        border: 1px solid #33ff33;
+        border-radius: 3px;
+        cursor: pointer;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+        transition: all 0.2s ease;
+    }
+    
+    .custom-file-input label:hover {
+        background-color: #222;
+        border-color: #66ff66;
+    }
+    
+    .custom-file-input label::before {
+        content: "[+]";
+        font-weight: bold;
+    }
+    
+    .custom-file-input label span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .file-name {
+        margin-top: 5px;
+        font-size: 0.85em;
+        color: #66ff66;
+        word-break: break-all;
+    }
+    
+    /* Make upload button more consistent with theme */
+    button[type="submit"] {
+        background-color: #111;
+        color: #33ff33;
+        border: 1px solid #33ff33;
+        padding: 8px 12px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        transition: all 0.2s ease;
+    }
+    
+    button[type="submit"]:hover {
+        background-color: #222;
+        color: #66ff66;
+        border-color: #66ff66;
+    }
+
+    /* Update color scheme to true black and vibrant green */
+body {
+        font-family: 'Courier New', monospace;
+        background-color: #000000; /* True black background */
+        color: #00ff00; /* Vibrant green text */
+        line-height: 1.4;
+        padding: 10px;
+    }
+    
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 15px;
+        background-color: #000000; /* Make container true black too */
+        border: 1px solid #00ff00;
+        border-radius: 5px;
+    }
+    
+    /* Update all greens to be vibrant */
+    .logo, .tagline, h3, footer a, .stat-number, 
+    button[type="submit"]:hover, .custom-file-input label:hover,
+    .custom-file-input label, .file-name {
+        color: #00ff00;
+    }
+    
+    button[type="submit"], .custom-file-input label {
+        background-color: #000000;
+        color: #00ff00;
+        border: 1px solid #00ff00;
+    }
+    
+    button[type="submit"]:hover, .custom-file-input label:hover {
+        background-color: #000000;
+        color: #00ff00;
+        border-color: #00ff00;
+        box-shadow: 0 0 5px #00ff00; /* Add a glow effect on hover */
+    }
+    
+    .cmd-upload, .web-upload, .info-box {
+        background-color: #000000;
+        border: 1px dotted #00ff00;
+    }
+    
+    code {
+        background-color: #000000;
+        border: 1px solid #004400;
+    }
+    
+    /* Update dashed lines */
+    .tagline, .upload-section, .stats-section {
+        border-color: #00ff00;
+    }
+
+    /* Add styles for copy button */
+.copy-btn {
+        background-color: #000000;
+        color: #00ff00;
+        border: 1px solid #00ff00;
+        font-family: 'Courier New', monospace;
+        padding: 2px 6px;
+        margin-left: 5px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.8em;
+        vertical-align: middle;
+    }
+    
+    .copy-btn:hover {
+        background-color: #003300;
+    }

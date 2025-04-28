@@ -34,24 +34,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                         const data = await response.json();
                         
-                        // Use the full URL with fileId/filename structure that the server provides
                         const url = `${window.location.origin}/${data.url}`;
                         
                         uploadResult.innerHTML = `
                             File uploaded successfully!<br>
-                            URL: <a href="${url}" target="_blank">${url}</a><br>
+                            URL: <a href="${url}" target="_blank">${url}</a> 
+                            <button id="copy-button" class="copy-btn" onclick="copyToClipboard('${url}')">Copy</button><br>
                             Expires in 7 days.
                         `;
-                        uploadResult.style.color = '#33ff33';
+                        uploadResult.style.color = '#00ff00';
                         fileInput.value = '';
                     } else {
-                    const error = await response.text();
-                    uploadResult.textContent = `Upload failed: ${error}`;
-                    uploadResult.style.color = '#ff3333';
-                }
+                        const error = await response.text();
+                        uploadResult.textContent = `Upload failed: ${error}`;
+                        uploadResult.style.color = '#ff3333';
+                    }
             } catch (error) {
                 uploadResult.textContent = `Upload failed: ${error.message}`;
                 uploadResult.style.color = '#ff3333';
             }
         });
+    });
+
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        const fileName = e.target.files[0] ? e.target.files[0].name : 'No file selected';
+        document.getElementById('selected-file').textContent = fileName;
+    });
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                document.getElementById('copy-button').textContent = 'Copied!';
+                setTimeout(() => {
+                    document.getElementById('copy-button').textContent = 'Copy';
+                }, 2000);
+            })
+            .catch(err => {
+                console.error('Could not copy text: ', err);
+            });
+    }
+    
+    // Make sure copyToClipboard is globally accessible
+    window.copyToClipboard = copyToClipboard;
+
+    // Add this function to show file type icons
+function getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        
+        // Define icon mapping
+        const icons = {
+            pdf: '📄',
+            doc: '📝', docx: '📝',
+            xls: '📊', xlsx: '📊',
+            ppt: '📊', pptx: '📊',
+            txt: '📄', md: '📄',
+            jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', bmp: '🖼️',
+            mp3: '🎵', wav: '🎵', ogg: '🎵',
+            mp4: '🎬', avi: '🎬', mov: '🎬', mkv: '🎬',
+            zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
+            html: '🌐', css: '🌐', js: '🌐',
+            exe: '⚙️', dll: '⚙️',
+            sh: '📜', bash: '📜'
+        };
+        
+        return icons[ext] || '📄'; // Default icon
+    }
+    
+    // Update the file name display to include an icon
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const icon = getFileIcon(file.name);
+            document.getElementById('selected-file').textContent = `${icon} ${file.name}`;
+        } else {
+            document.getElementById('selected-file').textContent = 'No file selected';
+        }
     });
