@@ -167,3 +167,27 @@
     footer a:hover {
         text-decoration: underline;
     }
+
+    .stats-section {
+        margin-top: 30px;
+        border-top: 1px dashed #33ff33;
+        padding-top: 20px;
+    }
+    
+    .stats-box {
+        margin: 0 auto;
+        max-width: 400px;
+        text-align: center;
+    }
+    
+    .stat-number {
+        color: #33ff33;
+        font-weight: bold;
+        font-size: 1.2em;
+    }
+    
+    .updated-time {
+        color: #999;
+        font-size: 0.8em;
+        margin-top: 10px;
+    }
