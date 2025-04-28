@@ -519,3 +519,56 @@ body {
         padding: 8px;
         border-radius: 5px;
     }
+    /* Multiple file upload styling */
+.selected-files-list {
+        list-style-type: none;
+        margin: 5px 0;
+        padding: 0;
+    }
+    
+    .selected-files-list li {
+        padding: 3px 0;
+        border-bottom: 1px dotted #004400;
+        font-size: 0.85em;
+    }
+    
+    .uploaded-files-list {
+        list-style-type: none;
+        margin: 10px 0;
+        padding: 0;
+        text-align: left;
+        border: 1px solid #004400;
+        border-radius: 3px;
+        background-color: rgba(0, 20, 0, 0.3);
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .uploaded-files-list li {
+        padding: 5px;
+        border-bottom: 1px dotted #004400;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    
+    .uploaded-files-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .uploaded-files-list a {
+        color: #00ff00;
+        text-decoration: none;
+        margin: 0 5px;
+        word-break: break-all;
+    }
+    
+    .uploaded-files-list a:hover {
+        text-decoration: underline;
+    }
+    
+    .copy-btn.small {
+        padding: 1px 4px;
+        font-size: 0.7em;
+    }

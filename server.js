@@ -42,6 +42,28 @@ function saveStats(stats) {
     fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2));
 }
 
+function getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        
+        // Define icon mapping
+        const icons = {
+            pdf: '📄',
+            doc: '📝', docx: '📝',
+            xls: '📊', xlsx: '📊',
+            ppt: '📊', pptx: '📊',
+            txt: '📄', md: '📄',
+            jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', bmp: '🖼️',
+            mp3: '🎵', wav: '🎵', ogg: '🎵',
+            mp4: '🎬', avi: '🎬', mov: '🎬', mkv: '🎬',
+            zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
+            html: '🌐', css: '🌐', js: '🌐',
+            exe: '⚙️', dll: '⚙️',
+            sh: '📜', bash: '📜'
+        };
+        
+        return icons[ext] || '📄'; // Default icon
+    }
+
 // Update recordUpload to track file size and type
 function recordUpload(fileSize, fileType) {
         const stats = loadStats();
@@ -431,6 +453,158 @@ echo "https://slashbinslash.sh/$fileId"
 `);
 });
 
+app.get('/:id', (req, res) => {
+        const id = req.params.id;
+        const dirPath = path.join(uploadsDir, id);
+        const metadataPath = path.join(dirPath, 'metadata.json');
+        
+        // Check if directory exists
+        if (!fs.existsSync(dirPath) || !fs.existsSync(metadataPath)) {
+            return res.status(404).send('File or collection not found or has expired.');
+        }
+        
+        // Read metadata
+        try {
+            const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+            
+            // Check if it has expired
+            const expiryDate = new Date(metadata.expiryDate);
+            if (expiryDate < new Date()) {
+                fs.rmSync(dirPath, { recursive: true, force: true });
+                return res.status(404).send('File or collection has expired.');
+            }
+            
+            // Check if it's a collection
+            if (metadata.isCollection) {
+                // This is a collection - generate collection page
+                let fileList = '';
+                let totalSize = 0;
+                
+                metadata.files.forEach(file => {
+                    const icon = getFileIcon(file.name);
+                    // Add file size to display if available
+                    const fileSize = file.size ? ` <span class="file-size">(${formatSize(file.size)})</span>` : '';
+                    fileList += `<li>${icon} <a href="/${file.fileId}">${file.name}</a>${fileSize}</li>`;
+                    
+                    // Sum up total size
+                    if (file.size) {
+                        totalSize += file.size;
+                    }
+                });
+                
+                // Use stored total size if available, otherwise use calculated total
+                const collectionSize = metadata.totalSize || totalSize;
+                
+                const html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>File Collection - slashbinslash.sh</title>
+                    <link rel="stylesheet" href="/style.css">
+                    <link rel="icon" href="/favicon.ico">
+                    <style>
+                        .collection-container {
+                            max-width: 800px;
+                            margin: 20px auto;
+                            padding: 20px;
+                            background-color: #000000;
+                            border: 1px solid #00ff00;
+                            border-radius: 5px;
+                        }
+                        .collection-title {
+                            text-align: center;
+                            margin-bottom: 20px;
+                            padding-bottom: 10px;
+                            border-bottom: 1px dashed #00ff00;
+                        }
+                        .collection-info {
+                            margin-bottom: 20px;
+                            color: #999;
+                            font-size: 0.9em;
+                            text-align: center;
+                        }
+                        .collection-files {
+                            list-style-type: none;
+                            padding: 0;
+                        }
+                        .collection-files li {
+                            padding: 8px;
+                            margin-bottom: 5px;
+                            border: 1px solid #004400;
+                            border-radius: 3px;
+                            background-color: rgba(0, 20, 0, 0.3);
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        }
+                        .collection-files a {
+                            color: #00ff00;
+                            text-decoration: none;
+                            flex-grow: 1;
+                        }
+                        .collection-files a:hover {
+                            text-decoration: underline;
+                        }
+                        .file-size {
+                            color: #888;
+                            font-size: 0.85em;
+                            margin-left: 8px;
+                        }
+                        .total-size {
+                            margin-top: 10px;
+                            text-align: right;
+                            color: #00ff00;
+                            font-size: 0.9em;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="collection-container">
+                        <h1 class="collection-title">File Collection</h1>
+                        <div class="collection-info">
+                            Uploaded on ${new Date(metadata.uploadDate).toLocaleString()}<br>
+                            Expires on ${new Date(metadata.expiryDate).toLocaleString()}<br>
+                            Contains ${metadata.files.length} file${metadata.files.length !== 1 ? 's' : ''}
+                            <br>
+                            Total size: ${formatSize(collectionSize)}
+                        </div>
+                        <ul class="collection-files">
+                            ${fileList}
+                        </ul>
+                        <div class="collection-info">
+                            <a href="/">Back to slashbinslash.sh</a>
+                        </div>
+                    </div>
+                </body>
+                </html>`;
+                
+                return res.send(html);
+            } else {
+                // This is a single file
+                // For netcat uploads (paste.txt), serve the file directly
+                const pastePath = path.join(dirPath, 'paste.txt');
+                if (fs.existsSync(pastePath)) {
+                    // Set plain text content type
+                    res.setHeader('Content-Type', 'text/plain');
+                    return res.sendFile(pastePath);
+                }
+                
+                // For HTTP uploads, redirect to the file with filename
+                const files = fs.readdirSync(dirPath).filter(f => f !== 'metadata.json');
+                if (files.length > 0) {
+                    return res.redirect(`/${id}/${encodeURIComponent(files[0])}`);
+                }
+                
+                return res.status(404).send('File content not found.');
+            }
+        } catch (err) {
+            console.error(`Error processing ${id}:`, err);
+            return res.status(500).send('Error processing request.');
+        }
+    });
+
 // Serve uploaded files
 app.get('/:fileId/:fileName', (req, res) => {
     const fileId = req.params.fileId;
@@ -465,50 +639,6 @@ app.get('/:fileId/:fileName', (req, res) => {
     // Set content disposition to use original filename
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(metadata.originalName)}"`);
     res.sendFile(filePath);
-});
-
-// Add a redirect for old-style URLs
-app.get('/:fileId', (req, res) => {
-    const fileId = req.params.fileId;
-    const uploadDir = path.join(uploadsDir, fileId);
-    
-    // If directory doesn't exist, return 404
-    if (!fs.existsSync(uploadDir)) {
-        return res.status(404).send('File not found or has expired.');
-    }
-    
-    // Check for metadata
-    const metadataPath = path.join(uploadDir, 'metadata.json');
-    if (!fs.existsSync(metadataPath)) {
-        return res.status(404).send('File metadata not found or has expired.');
-    }
-    
-    // Read metadata
-    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
-    
-    // Check if file has expired
-    const expiryDate = new Date(metadata.expiryDate);
-    if (expiryDate < new Date()) {
-        // Delete the entire upload directory
-        fs.rmSync(uploadDir, { recursive: true, force: true });
-        return res.status(404).send('File has expired.');
-    }
-    
-    // For netcat uploads (paste.txt), serve the file directly
-    const pastePath = path.join(uploadDir, 'paste.txt');
-    if (fs.existsSync(pastePath)) {
-        // Set plain text content type
-        res.setHeader('Content-Type', 'text/plain');
-        return res.sendFile(pastePath);
-    }
-    
-    // For HTTP uploads, redirect to the file with filename
-    const files = fs.readdirSync(uploadDir).filter(f => f !== 'metadata.json');
-    if (files.length > 0) {
-        return res.redirect(`/${fileId}/${encodeURIComponent(files[0])}`);
-    }
-    
-    return res.status(404).send('File content not found.');
 });
 
 // Start the server
@@ -550,6 +680,122 @@ function cleanupExpiredFiles() {
         });
     });
 }
+
+// Add this new route for multiple file uploads
+app.post('/upload-multiple', (req, res) => {
+        // Configure multer to handle multiple files
+        upload.array('files', 10)(req, res, (err) => {
+            if (err) {
+                if (err.code === 'LIMIT_FILE_SIZE') {
+                    return res.status(400).send('File size exceeds 100MB limit.');
+                }
+                console.error('Upload error:', err);
+                return res.status(500).send('Upload failed.');
+            }
+            
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).send('No files uploaded.');
+            }
+            
+            // Get expiry days from request or default to 7
+            let expiryDays = 7;
+            if (req.body && req.body.expiryDays) {
+                expiryDays = parseInt(req.body.expiryDays, 10) || 7;
+                expiryDays = Math.min(Math.max(1, expiryDays), 14);
+            }
+            
+            // Single file case - reuse existing functionality
+            if (req.files.length === 1) {
+                const file = req.files[0];
+                
+                // Update the file metadata with correct expiry
+                const metadataPath = path.join(uploadsDir, file.fileId, 'metadata.json');
+                if (fs.existsSync(metadataPath)) {
+                    try {
+                        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+                        metadata.expiryDays = expiryDays;
+                        metadata.expiryDate = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
+                        fs.writeFileSync(metadataPath, JSON.stringify(metadata));
+                    } catch (err) {
+                        console.error('Error updating metadata:', err);
+                    }
+                }
+                
+                // Record stats for this file
+                const fileExt = getFileType(file.originalname);
+                recordUpload(file.size, fileExt);
+                
+                // Return single file response
+                return res.status(200).json({
+                    files: [{
+                        fileId: file.fileId,
+                        name: file.originalname,
+                        url: file.fileId
+                    }],
+                    expiryDays: expiryDays
+                });
+            }
+            
+            // Multiple files case
+            const collectionId = generateShortId();
+            const collectionDir = path.join(uploadsDir, collectionId);
+            fs.mkdirSync(collectionDir, { recursive: true });
+            
+            // Create metadata for the collection
+            const collectionInfo = {
+                isCollection: true,
+                files: [],
+                uploadDate: new Date().toISOString(),
+                expiryDate: new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString(),
+                expiryDays: expiryDays
+            };
+            
+            // Process each file and add to the collection
+            const fileInfoList = [];
+            let totalSize = 0;
+            
+            req.files.forEach(file => {
+                const fileExt = getFileType(file.originalname);
+                fileInfoList.push({
+                    fileId: file.fileId,
+                    name: file.originalname,
+                    url: file.fileId
+                });
+                
+                collectionInfo.files.push({
+                    fileId: file.fileId,
+                    name: file.originalname,
+                    // Add this line to store file size
+                    size: file.size
+                });
+                
+                // Record stats for this file
+                recordUpload(file.size, fileExt);
+                totalSize += file.size;
+            });
+            
+            // Also add total size to collection metadata
+            collectionInfo.totalSize = totalSize;
+            
+            // Save collection metadata
+            fs.writeFileSync(
+                path.join(collectionDir, 'metadata.json'),
+                JSON.stringify(collectionInfo)
+            );
+            
+            // Add logging for collection
+            const clientIP = req.ip || req.socket.remoteAddress || 'unknown';
+            const userAgent = req.get('User-Agent') || 'unknown';
+            console.log(`HTTP collection upload from ${clientIP} - ${req.files.length} files (${formatSize(totalSize)}) - Collection ID: ${collectionId} - Agent: ${userAgent}`);
+            
+            // Return response with collection info
+            return res.status(200).json({
+                collectionId: collectionId,
+                files: fileInfoList,
+                expiryDays: expiryDays
+            });
+        });
+    });
 
 // Run cleanup every hour
 setInterval(cleanupExpiredFiles, 60 * 60 * 1000);

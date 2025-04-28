@@ -2,75 +2,144 @@ document.addEventListener('DOMContentLoaded', () => {
         const uploadForm = document.getElementById('upload-form');
         const fileInput = document.getElementById('file-input');
         const uploadResult = document.getElementById('upload-result');
+        const selectedFileDisplay = document.getElementById('selected-file');
+    
+        // Update the file selection display for multiple files
+        fileInput.addEventListener('change', function(e) {
+            if (this.files.length === 0) {
+                selectedFileDisplay.textContent = 'No files selected';
+            } else if (this.files.length === 1) {
+                const file = this.files[0];
+                const icon = getFileIcon(file.name);
+                selectedFileDisplay.textContent = `${icon} ${file.name}`;
+            } else {
+                selectedFileDisplay.textContent = `${this.files.length} files selected`;
+                
+                // Create a list of selected files
+                const fileList = document.createElement('ul');
+                fileList.className = 'selected-files-list';
+                
+                Array.from(this.files).forEach(file => {
+                    const icon = getFileIcon(file.name);
+                    const item = document.createElement('li');
+                    item.textContent = `${icon} ${file.name}`;
+                    fileList.appendChild(item);
+                });
+                
+                selectedFileDisplay.innerHTML = '';
+                selectedFileDisplay.appendChild(fileList);
+            }
+        });
     
         uploadForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const file = fileInput.files[0];
-                if (!file) {
-                    uploadResult.textContent = 'Please select a file.';
-                    uploadResult.style.color = '#ff3333';
-                    return;
-                }
+            e.preventDefault();
             
-                if (file.size > 100 * 1024 * 1024) {
-                    uploadResult.textContent = 'File size exceeds 100MB limit.';
-                    uploadResult.style.color = '#ff3333';
-                    return;
-                }
+            const files = fileInput.files;
+            if (files.length === 0) {
+                uploadResult.textContent = 'Please select at least one file.';
+                uploadResult.style.color = '#ff3333';
+                return;
+            }
             
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                // Add expiry days to the form data
-                const expiryDays = document.getElementById('expiry-select').value;
-                formData.append('expiryDays', expiryDays);
-                
-                uploadResult.textContent = 'Uploading...';
-                uploadResult.style.color = '#00ff00';
+            // Check if total size exceeds limit
+            let totalSize = 0;
+            for (let i = 0; i < files.length; i++) {
+                totalSize += files[i].size;
+            }
             
-                try {
-                    const response = await fetch('/upload', {
-                        method: 'POST',
-                        body: formData
-                    });
-                
-                    if (response.ok) {
-                        const data = await response.json();
-                        
-                        const url = `${window.location.origin}/${data.url}`;
+            if (totalSize > 100 * 1024 * 1024) {
+                uploadResult.textContent = 'Total file size exceeds 100MB limit.';
+                uploadResult.style.color = '#ff3333';
+                return;
+            }
+    
+            const formData = new FormData();
+            
+            // Append all files
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+            
+            // Add expiry days to the form data
+            const expiryDays = document.getElementById('expiry-select').value;
+            formData.append('expiryDays', expiryDays);
+            
+            uploadResult.textContent = 'Uploading...';
+            uploadResult.style.color = '#00ff00';
+    
+            try {
+                const response = await fetch('/upload-multiple', {
+                    method: 'POST',
+                    body: formData
+                });
+            
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.files.length === 1) {
+                        // Single file handling
+                        const url = `${window.location.origin}/${data.files[0].url}`;
                         
                         // Generate QR code
-                        const qrDiv = document.createElement('div');
-                        qrDiv.className = 'qr-code';
-                        
-                        // Generate QR code using the qrcode-generator library
-                        const typeNumber = 0; // Auto-detect size
-                        const errorCorrectionLevel = 'L'; // Low
-                        const qr = window.qrcode(typeNumber, errorCorrectionLevel);
+                        const qr = window.qrcode(0, 'L');
                         qr.addData(url);
                         qr.make();
-                        
-                        // Create and style QR code image
-                        const qrImage = qr.createImgTag(5); // Cellsize=5
+                        const qrImage = qr.createImgTag(5);
                         
                         uploadResult.innerHTML = `
                             File uploaded successfully!<br>
                             URL: <a href="${url}" target="_blank">${url}</a> 
-                            <button id="copy-button" class="copy-btn" onclick="copyToClipboard('${url}')">Copy</button><br>
+                            <button class="copy-btn" onclick="copyToClipboard('${url}')">Copy</button><br>
                             Expires in ${data.expiryDays} days.<br>
                             <div class="qr-container">
                                 <div class="qr-label">Scan QR Code:</div>
                                 ${qrImage}
                             </div>
                         `;
-                        uploadResult.style.color = '#00ff00';
-                        fileInput.value = '';
                     } else {
-                        const error = await response.text();
-                        uploadResult.textContent = `Upload failed: ${error}`;
-                        uploadResult.style.color = '#ff3333';
+                        // Multiple files handling
+                        const collectionUrl = `${window.location.origin}/${data.collectionId}`;
+                        
+                        // Generate QR code for the collection
+                        const qr = window.qrcode(0, 'L');
+                        qr.addData(collectionUrl);
+                        qr.make();
+                        const qrImage = qr.createImgTag(5);
+                        
+                        let filesList = '<ul class="uploaded-files-list">';
+                        data.files.forEach(file => {
+                            const fileUrl = `${window.location.origin}/${file.url}`;
+                            filesList += `
+                                <li>
+                                    ${getFileIcon(file.name)} ${file.name} 
+                                    <a href="${fileUrl}" target="_blank">${fileUrl}</a>
+                                    <button class="copy-btn small" onclick="copyToClipboard('${fileUrl}')">Copy</button>
+                                </li>`;
+                        });
+                        filesList += '</ul>';
+                        
+                        uploadResult.innerHTML = `
+                            ${data.files.length} files uploaded successfully!<br>
+                            Collection URL: <a href="${collectionUrl}" target="_blank">${collectionUrl}</a> 
+                            <button class="copy-btn" onclick="copyToClipboard('${collectionUrl}')">Copy</button><br>
+                            Expires in ${data.expiryDays} days.<br>
+                            ${filesList}
+                            <div class="qr-container">
+                                <div class="qr-label">Scan QR Code for Collection:</div>
+                                ${qrImage}
+                            </div>
+                        `;
                     }
+                    
+                    uploadResult.style.color = '#00ff00';
+                    fileInput.value = '';
+                    selectedFileDisplay.textContent = 'No files selected';
+                    
+                } else {
+                    const error = await response.text();
+                    uploadResult.textContent = `Upload failed: ${error}`;
+                    uploadResult.style.color = '#ff3333';
+                }
             } catch (error) {
                 uploadResult.textContent = `Upload failed: ${error.message}`;
                 uploadResult.style.color = '#ff3333';
