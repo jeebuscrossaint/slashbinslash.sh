@@ -7,121 +7,112 @@ const net = require('net');
 
 const NC_PORT = 9999; // Port for netcat listener same one as termbin for all the termbinners out there
 
-// Update the netcat server implementation
+// Netcat server - complete rewrite for better performance
 const ncServer = net.createServer((socket) => {
         let data = Buffer.from('');
-        let receivedData = false;
+        let processed = false;
         const clientAddress = `${socket.remoteAddress}:${socket.remotePort}`;
+        let inactivityTimer = null;
         
-        console.log(`New netcat connection from ${clientAddress}`);
+        console.log(`Netcat connection from ${clientAddress}`);
         
-        // Increase timeout to 10 seconds for slower connections
-        socket.setTimeout(10000);
-        socket.on('timeout', () => {
-            console.log(`Netcat connection from ${clientAddress} timed out`);
-            if (receivedData) {
-                processUpload();
-            } else {
-                socket.end('Error: No data received\n');
-            }
-            socket.destroy();
-        });
+        // Set a short inactivity timer of 100ms
+        const startInactivityTimer = () => {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                if (data.length > 0 && !processed) {
+                    handleUpload();
+                }
+            }, 100);
+        };
         
         socket.on('data', (chunk) => {
-            // Log when we receive data and its size
-            console.log(`Received ${chunk.length} bytes from ${clientAddress}`);
-            
-            // Append incoming data chunks
+            // Combine data chunks
             data = Buffer.concat([data, chunk]);
-            receivedData = true;
             
-            // Limit size to prevent abuse (10MB max)
+            // Reset the inactivity timer
+            startInactivityTimer();
+            
+            // Size limit check (10MB)
             if (data.length > 10 * 1024 * 1024) {
                 socket.end('Error: Data too large\n');
                 socket.destroy();
                 return;
             }
             
-            // Try to detect end of transmission for clients that don't properly close
-            if (chunk.includes(0x04) || chunk.includes(0x1A)) {  // EOT or SUB characters
-                console.log(`EOT/SUB detected from ${clientAddress}, processing upload`);
-                processUpload();
+            // Process immediately if we detect EOT character
+            if (chunk.includes(0x04)) {
+                handleUpload();
             }
         });
         
         socket.on('end', () => {
-            console.log(`Connection ended from ${clientAddress}`);
-            if (receivedData) {
-                processUpload();
+            if (!processed && data.length > 0) {
+                handleUpload();
             }
         });
         
         socket.on('error', (err) => {
-            console.error(`Socket error from ${clientAddress}:`, err);
+            console.error(`Netcat error: ${err.message}`);
             socket.destroy();
         });
         
-        // Extract upload logic to a function to avoid duplication
-        function processUpload() {
-            // Only process once
-            if (!receivedData) return;
-            receivedData = false;
-            
-            try {
-                // Generate a random file ID
-                const fileId = crypto.randomBytes(4).toString('hex');
-                
-                // Create a dedicated directory for this upload
-                const uploadDir = path.join(uploadsDir, fileId);
-                fs.mkdirSync(uploadDir, { recursive: true });
-                
-                // Create a timestamp for the filename
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const fileName = `nc-${timestamp}.txt`;
-                
-                // Store metadata
-                const fileInfo = {
-                    originalName: fileName,
-                    uploadDate: new Date().toISOString(),
-                    expiryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-                };
-                
-                // Save file metadata
-                fs.writeFileSync(
-                    path.join(uploadDir, 'metadata.json'),
-                    JSON.stringify(fileInfo)
-                );
-                
-                // Save the data as a text file
-                fs.writeFileSync(
-                    path.join(uploadDir, fileName), 
-                    data
-                );
-                
-                // Return the URL to the client
-                const url = `${fileId}/${encodeURIComponent(fileName)}`;
-                // Use protocol and host from settings, fallback to localhost
-                const fullUrl = `http://${process.env.HOST || 'localhost'}:${PORT}/${url}`;
-                
-                socket.write(`${fullUrl}\n`);
-                socket.end();
-                
-                console.log(`Netcat upload successful: ${fullUrl}`);
-            } catch (err) {
-                console.error('Error processing netcat upload:', err);
-                socket.write('Error during upload\n');
-                socket.end();
+        function stripAnsiCodes(str) {
+                return str.replace(/\u001b\[\d+(;\d+)*m/g, '');
             }
-        }
+            
+            // Then modify the handleUpload function in the netcat server section:
+            function handleUpload() {
+                if (processed || data.length === 0) return;
+                processed = true;
+                clearTimeout(inactivityTimer);
+                
+                try {
+                    const fileId = crypto.randomBytes(4).toString('hex');
+                    const uploadDir = path.join(uploadsDir, fileId);
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                    
+                    const fileName = `nc-${Date.now()}.txt`;
+                    
+                    // Save metadata
+                    const fileInfo = {
+                        originalName: fileName,
+                        uploadDate: new Date().toISOString(),
+                        expiryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+                    };
+                    
+                    fs.writeFileSync(
+                        path.join(uploadDir, 'metadata.json'),
+                        JSON.stringify(fileInfo)
+                    );
+                    
+                    // Clean the data by removing ANSI color codes before saving
+                    const cleanData = stripAnsiCodes(data.toString('utf-8'));
+                    
+                    // Save file with cleaned data
+                    fs.writeFileSync(path.join(uploadDir, fileName), cleanData);
+                    
+                    // Return URL
+                    const url = `${fileId}/${encodeURIComponent(fileName)}`;
+                    const fullUrl = `http://${process.env.HOST || 'localhost'}:${PORT}/${url}`;
+                    
+                    socket.write(fullUrl + '\n');
+                    socket.end();
+                    
+                } catch (err) {
+                    console.error('Upload error:', err);
+                    socket.write('Server error during upload\n');
+                    socket.end();
+                }
+            }
     });
-
+    
     ncServer.listen(NC_PORT, () => {
         console.log(`Netcat server listening on port ${NC_PORT}`);
     });
     
-    // Handle errors
     ncServer.on('error', (err) => {
-        console.error('Netcat server error:', err);
+        console.error(`Netcat server error: ${err.message}`);
     });
 
 // Create uploads directory if it doesn't exist
@@ -180,6 +171,7 @@ const upload = multer({
 app.use(express.static('public'));
 
 // Handle file uploads
+// Handle file uploads
 app.post('/upload', (req, res) => {
         upload.single('file')(req, res, (err) => {
             if (err) {
@@ -201,8 +193,14 @@ app.post('/upload', (req, res) => {
                 message: 'File uploaded successfully.'
             };
             
+            // Add logging for HTTP uploads
+            const clientIP = req.ip || req.socket.remoteAddress || 'unknown';
+            const userAgent = req.get('User-Agent') || 'unknown';
+            const fileSize = req.file.size;
+            
+            console.log(`HTTP upload from ${clientIP} - File: "${req.file.originalname}" (${formatSize(fileSize)}) - ID: ${req.file.fileId} - Agent: ${userAgent}`);
+            
             // Check if request is from curl (or similar CLI tool)
-            const userAgent = req.get('User-Agent') || '';
             const isCommandLine = userAgent.includes('curl') || userAgent.includes('Wget') || req.query.cli === 'true';
             
             if (isCommandLine) {
@@ -215,6 +213,14 @@ app.post('/upload', (req, res) => {
             }
         });
     });
+
+// Helper function to format file sizes for logging
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    else return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+}
 
 // Serve command line upload script
 app.get('/up.sh', (req, res) => {
