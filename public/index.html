@@ -26,6 +26,9 @@
                 <code>curl -F "file=@yourfile.txt" https://slashbinslash.sh/upload</code>
                 <p>or pipe output:</p>
                 <code>command | curl -F "file=@-" https://slashbinslash.sh/upload</code>
+                <p>or use netcat:</p>
+                <code>echo "hello world" | nc slashbinslash.sh 9999</code>
+                <code>cat file.txt | nc slashbinslash.sh 9999</code>
             </div>
             
             <div class="web-upload">

@@ -1,10 +1,15 @@
 #!/bin/bash
 # slashbinslash.sh upload script
+#
+# You can also use netcat:
+# echo "hello world" | nc slashbinslash.sh 9999
+# cat file.txt | nc slashbinslash.sh 9999
 
 if [ -t 0 ]; then
     # If input is from a file
     if [ $# -eq 0 ]; then
         echo "Usage: $0 <file> or command | $0"
+        echo "       You can also use: command | nc slashbinslash.sh 9999"
         exit 1
     fi
     
@@ -21,11 +26,4 @@ else
     result=$(curl -s -F "file=@-" https://slashbinslash.sh/upload)
 fi
 
-# Parse the JSON to get the fileId
-fileId=$(echo $result | grep -o '"fileId":"[^"]*"' | cut -d'"' -f4)
-if [ -z "$fileId" ]; then
-    echo "Upload failed: $result"
-    exit 1
-fi
-
-echo "https://slashbinslash.sh/$fileId"
+echo "$result"

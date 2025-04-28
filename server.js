@@ -3,6 +3,126 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const net = require('net');
+
+const NC_PORT = 9999; // Port for netcat listener same one as termbin for all the termbinners out there
+
+// Update the netcat server implementation
+const ncServer = net.createServer((socket) => {
+        let data = Buffer.from('');
+        let receivedData = false;
+        const clientAddress = `${socket.remoteAddress}:${socket.remotePort}`;
+        
+        console.log(`New netcat connection from ${clientAddress}`);
+        
+        // Increase timeout to 10 seconds for slower connections
+        socket.setTimeout(10000);
+        socket.on('timeout', () => {
+            console.log(`Netcat connection from ${clientAddress} timed out`);
+            if (receivedData) {
+                processUpload();
+            } else {
+                socket.end('Error: No data received\n');
+            }
+            socket.destroy();
+        });
+        
+        socket.on('data', (chunk) => {
+            // Log when we receive data and its size
+            console.log(`Received ${chunk.length} bytes from ${clientAddress}`);
+            
+            // Append incoming data chunks
+            data = Buffer.concat([data, chunk]);
+            receivedData = true;
+            
+            // Limit size to prevent abuse (10MB max)
+            if (data.length > 10 * 1024 * 1024) {
+                socket.end('Error: Data too large\n');
+                socket.destroy();
+                return;
+            }
+            
+            // Try to detect end of transmission for clients that don't properly close
+            if (chunk.includes(0x04) || chunk.includes(0x1A)) {  // EOT or SUB characters
+                console.log(`EOT/SUB detected from ${clientAddress}, processing upload`);
+                processUpload();
+            }
+        });
+        
+        socket.on('end', () => {
+            console.log(`Connection ended from ${clientAddress}`);
+            if (receivedData) {
+                processUpload();
+            }
+        });
+        
+        socket.on('error', (err) => {
+            console.error(`Socket error from ${clientAddress}:`, err);
+            socket.destroy();
+        });
+        
+        // Extract upload logic to a function to avoid duplication
+        function processUpload() {
+            // Only process once
+            if (!receivedData) return;
+            receivedData = false;
+            
+            try {
+                // Generate a random file ID
+                const fileId = crypto.randomBytes(4).toString('hex');
+                
+                // Create a dedicated directory for this upload
+                const uploadDir = path.join(uploadsDir, fileId);
+                fs.mkdirSync(uploadDir, { recursive: true });
+                
+                // Create a timestamp for the filename
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const fileName = `nc-${timestamp}.txt`;
+                
+                // Store metadata
+                const fileInfo = {
+                    originalName: fileName,
+                    uploadDate: new Date().toISOString(),
+                    expiryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+                };
+                
+                // Save file metadata
+                fs.writeFileSync(
+                    path.join(uploadDir, 'metadata.json'),
+                    JSON.stringify(fileInfo)
+                );
+                
+                // Save the data as a text file
+                fs.writeFileSync(
+                    path.join(uploadDir, fileName), 
+                    data
+                );
+                
+                // Return the URL to the client
+                const url = `${fileId}/${encodeURIComponent(fileName)}`;
+                // Use protocol and host from settings, fallback to localhost
+                const fullUrl = `http://${process.env.HOST || 'localhost'}:${PORT}/${url}`;
+                
+                socket.write(`${fullUrl}\n`);
+                socket.end();
+                
+                console.log(`Netcat upload successful: ${fullUrl}`);
+            } catch (err) {
+                console.error('Error processing netcat upload:', err);
+                socket.write('Error during upload\n');
+                socket.end();
+            }
+        }
+    });
+
+    ncServer.listen(NC_PORT, () => {
+        console.log(`Netcat server listening on port ${NC_PORT}`);
+    });
+    
+    // Handle errors
+    ncServer.on('error', (err) => {
+        console.error('Netcat server error:', err);
+    });
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -14,10 +134,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configure file storage
+// Configure file storage
 const storage = multer.diskStorage({
         destination: (req, file, cb) => {
             // Generate a random file ID
             const fileId = crypto.randomBytes(4).toString('hex');
+            
+            // Attach fileId to the file object so we can access it later
+            file.fileId = fileId;
             
             // Create a dedicated directory for this upload
             const uploadDir = path.join(uploadsDir, fileId);
@@ -69,16 +193,26 @@ app.post('/upload', (req, res) => {
                 return res.status(400).send('No file uploaded.');
             }
             
-            // The directory name is our fileId
-            const fileId = path.basename(path.dirname(req.file.path));
-            const originalName = req.file.originalname;
-            
-            return res.status(200).json({
-                fileId: fileId,
-                fileName: originalName,
-                url: `${fileId}/${encodeURIComponent(originalName)}`,
+            // Create response data
+            const responseData = {
+                fileId: req.file.fileId,
+                fileName: req.file.originalname,
+                url: `${req.file.fileId}/${encodeURIComponent(req.file.originalname)}`,
                 message: 'File uploaded successfully.'
-            });
+            };
+            
+            // Check if request is from curl (or similar CLI tool)
+            const userAgent = req.get('User-Agent') || '';
+            const isCommandLine = userAgent.includes('curl') || userAgent.includes('Wget') || req.query.cli === 'true';
+            
+            if (isCommandLine) {
+                // Return plain text URL for command line clients
+                const fullUrl = `${req.protocol}://${req.get('host')}/${responseData.url}`;
+                return res.type('text/plain').send(fullUrl);
+            } else {
+                // Return JSON for browser/API clients
+                return res.status(200).json(responseData);
+            }
         });
     });
 
