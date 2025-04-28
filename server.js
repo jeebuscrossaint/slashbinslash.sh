@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const net = require('net');
+const rateLimit = require('express-rate-limit');
+
 
 const NC_PORT = 9999; // Port for netcat listener same one as termbin for all the termbinners out there
 
@@ -132,6 +134,53 @@ if (!fs.existsSync(uploadsDir)) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const uploadLimiter = rateLimit({
+        windowMs: 60 * 60 * 1000, // 1 hour
+        max: 100, // Limit each IP to 10 upload requests per hour
+        message: 'Too many uploads from this IP, please try again after an hour',
+        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+        legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    });
+
+    // Rate limiter specifically for netcat uploads from same IP
+const ncConnections = new Map();
+const NC_RATE_LIMIT = 100; // 10 uploads per hour
+const NC_WINDOW_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
+function checkNcRateLimit(ip) {
+    const now = Date.now();
+    if (!ncConnections.has(ip)) {
+        ncConnections.set(ip, [now]);
+        return true;
+    }
+    
+    const connections = ncConnections.get(ip);
+    // Filter connections to only include those within the time window
+    const recentConnections = connections.filter(time => (now - time) < NC_WINDOW_MS);
+    
+    if (recentConnections.length >= NC_RATE_LIMIT) {
+        return false; // Rate limit exceeded
+    }
+    
+    // Add current connection time and update the map
+    recentConnections.push(now);
+    ncConnections.set(ip, recentConnections);
+    return true;
+}
+
+// Clean up old netcat rate limit data periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, times] of ncConnections.entries()) {
+        const recentTimes = times.filter(time => (now - time) < NC_WINDOW_MS);
+        if (recentTimes.length === 0) {
+            ncConnections.delete(ip);
+        } else {
+            ncConnections.set(ip, recentTimes);
+        }
+    }
+}, 60 * 60 * 1000); // Clean up every hour
+
 // Configure file storage
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -191,12 +240,19 @@ const upload = multer({
 
 // Netcat server - complete rewrite for better performance
 const ncServer = net.createServer((socket) => {
-    let data = Buffer.from('');
-    let processed = false;
-    const clientAddress = `${socket.remoteAddress}:${socket.remotePort}`;
-    let inactivityTimer = null;
-    
-    console.log(`Netcat connection from ${clientAddress}`);
+        let data = Buffer.from('');
+        let processed = false;
+        const clientIP = socket.remoteAddress || 'unknown';
+        let inactivityTimer = null;
+        
+        console.log(`Netcat connection from ${clientIP}`);
+        
+        // Check rate limit for netcat connections
+        if (!checkNcRateLimit(clientIP)) {
+            socket.write('Error: Rate limit exceeded. Try again later.\n');
+            socket.end();
+            return;
+        }
     
     // Set a short inactivity timer of 100ms
     const startInactivityTimer = () => {
@@ -337,7 +393,7 @@ app.use(express.static('public'));
 
 // Replace your current upload handler with this fixed version:
 // Handle file uploads
-app.post('/upload', (req, res) => {
+app.post('/upload', uploadLimiter, (req, res) => {
         // Configure multer to handle both the file and form fields in one go
         upload.single('file')(req, res, (err) => {
             if (err) {
@@ -682,7 +738,7 @@ function cleanupExpiredFiles() {
 }
 
 // Add this new route for multiple file uploads
-app.post('/upload-multiple', (req, res) => {
+app.post('/upload-multiple', uploadLimiter, (req, res) => {
         // Configure multer to handle multiple files
         upload.array('files', 10)(req, res, (err) => {
             if (err) {
