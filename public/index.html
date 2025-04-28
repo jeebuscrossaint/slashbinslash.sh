@@ -39,6 +39,18 @@
                             <label for="file-input"><span>Select a file...</span></label>
                         </div>
                         <div class="file-name" id="selected-file">No file selected</div>
+                        
+                        <!-- Add expiry selection dropdown -->
+                        <div class="expiry-selection">
+                            <label for="expiry-select">Expires after:</label>
+                            <select id="expiry-select" name="expiry">
+                                <option value="1">1 day</option>
+                                <option value="3">3 days</option>
+                                <option value="7" selected>7 days</option>
+                                <option value="14">14 days</option>
+                            </select>
+                        </div>
+                        
                         <button type="submit">Upload</button>
                     </form>
                 <div id="upload-result"></div>

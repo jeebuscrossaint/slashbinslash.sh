@@ -440,3 +440,37 @@ body {
     .copy-btn:hover {
         background-color: #003300;
     }
+
+    /* Expiry selection styling */
+.expiry-selection {
+        margin: 10px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .expiry-selection label {
+        color: #00ff00;
+        font-size: 0.9em;
+    }
+    
+    .expiry-selection select {
+        background-color: #000000;
+        color: #00ff00;
+        border: 1px solid #00ff00;
+        padding: 5px;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+        cursor: pointer;
+        outline: none;
+    }
+    
+    .expiry-selection select:focus {
+        box-shadow: 0 0 3px #00ff00;
+    }
+    
+    .expiry-selection select option {
+        background-color: #000000;
+        color: #00ff00;
+    }

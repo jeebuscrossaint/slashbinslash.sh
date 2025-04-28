@@ -4,34 +4,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const uploadResult = document.getElementById('upload-result');
     
         uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const file = fileInput.files[0];
-            if (!file) {
-                uploadResult.textContent = 'Please select a file.';
-                uploadResult.style.color = '#ff3333';
-                return;
-            }
-    
-            if (file.size > 100 * 1024 * 1024) {
-                uploadResult.textContent = 'File size exceeds 100MB limit.';
-                uploadResult.style.color = '#ff3333';
-                return;
-            }
-    
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            uploadResult.textContent = 'Uploading...';
-            uploadResult.style.color = '#33ff33';
-    
-            try {
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+                e.preventDefault();
                 
-                if (response.ok) {
+                const file = fileInput.files[0];
+                if (!file) {
+                    uploadResult.textContent = 'Please select a file.';
+                    uploadResult.style.color = '#ff3333';
+                    return;
+                }
+            
+                if (file.size > 100 * 1024 * 1024) {
+                    uploadResult.textContent = 'File size exceeds 100MB limit.';
+                    uploadResult.style.color = '#ff3333';
+                    return;
+                }
+            
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Add expiry days to the form data
+                const expiryDays = document.getElementById('expiry-select').value;
+                formData.append('expiryDays', expiryDays);
+                
+                uploadResult.textContent = 'Uploading...';
+                uploadResult.style.color = '#00ff00';
+            
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                
+                    if (response.ok) {
                         const data = await response.json();
                         
                         const url = `${window.location.origin}/${data.url}`;
@@ -40,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             File uploaded successfully!<br>
                             URL: <a href="${url}" target="_blank">${url}</a> 
                             <button id="copy-button" class="copy-btn" onclick="copyToClipboard('${url}')">Copy</button><br>
-                            Expires in 7 days.
+                            Expires in ${data.expiryDays} days.
                         `;
                         uploadResult.style.color = '#00ff00';
                         fileInput.value = '';
