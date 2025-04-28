@@ -1,0 +1,25 @@
+{
+  "name": "slashbinslash.sh",
+  "version": "1.0.0",
+  "description": "temporary file sharing and storage",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeebuscrossaint/slashbinslash.sh.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jeebuscrossaint/slashbinslash.sh/issues"
+  },
+  "homepage": "https://github.com/jeebuscrossaint/slashbinslash.sh#readme",
+  "dependencies": {
+    "express": "^5.1.0",
+    "multer": "^1.4.5-lts.2"
+  }
+}
