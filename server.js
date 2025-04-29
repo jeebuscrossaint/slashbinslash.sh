@@ -610,7 +610,7 @@ upload_multiple_files() {
     local curl_cmd="curl -s"
     for ((i=0; i<count; i++)); do
         file="\${files[$i]}"
-        curl_cmd+=" -F \\"files=@$file\\""
+        curl_cmd+=" -F \\"file=@$file\\""
     done
     curl_cmd+=" -F \\"expiryDays=$expiry_days\\" \\"$PROTOCOL://$SERVER/upload-multiple\\""
 
@@ -763,7 +763,7 @@ function Upload-MultipleFiles {
     $curlArgs = @("-s")
     foreach ($file in $FilePaths) {
         $curlArgs += "-F"
-        $curlArgs += "files=@\`"$file\`""
+        $curlArgs += "file=@\`"$file\`""
     }
 
     $curlArgs += "-F"
@@ -1134,53 +1134,40 @@ app.get("/:fileId/:fileName", (req, res) => {
   res.sendFile(filePath);
 });
 
-// Add this new route for multiple file uploads
+// Add this new route for multiple file uploads - COMPLETELY REWRITTEN
 app.post("/upload-multiple", uploadLimiter, (req, res) => {
-  // Configure multer to handle multiple files
-  upload.array("files", 10)(req, res, (err) => {
+  // Create a new multer upload instance specifically for arrays of files
+  const multipleUpload = multer({
+    storage: storage,
+    limits: { fileSize: MAX_FILE_SIZE },
+  }).array("file", 20); // Accept up to 20 files with field name "file"
+
+  multipleUpload(req, res, (err) => {
     if (err) {
+      console.error("Upload error:", err);
       if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(400).send("File size exceeds 100MB limit.");
       }
-      console.error("Upload error:", err);
-      return res.status(500).send("Upload failed.");
+      return res.status(500).send("Upload failed: " + err.message);
     }
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).send("No files uploaded.");
     }
 
-    // Get expiry days from request or default to 7
-    let expiryDays = DEFAULT_EXPIRY_DAYS;
-    if (req.body && req.body.expiryDays) {
-      expiryDays = parseInt(req.body.expiryDays, 10) || DEFAULT_EXPIRY_DAYS;
-      expiryDays = Math.min(Math.max(1, expiryDays), MAX_EXPIRY_DAYS);
-    }
+    // Get expiry days from request or default
+    let expiryDays = parseInt(req.body.expiryDays, 10) || DEFAULT_EXPIRY_DAYS;
+    expiryDays = Math.min(Math.max(1, expiryDays), MAX_EXPIRY_DAYS);
 
-    // Single file case - reuse existing functionality
+    // Handle collection creation for multiple files or single file redirect
     if (req.files.length === 1) {
+      // Single file - just return its info
       const file = req.files[0];
-
-      // Update the file metadata with correct expiry
-      const metadataPath = path.join(uploadsDir, file.fileId, "metadata.json");
-      if (fs.existsSync(metadataPath)) {
-        try {
-          const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf-8"));
-          metadata.expiryDays = expiryDays;
-          metadata.expiryDate = new Date(
-            Date.now() + expiryDays * 24 * 60 * 60 * 1000,
-          ).toISOString();
-          fs.writeFileSync(metadataPath, JSON.stringify(metadata));
-        } catch (err) {
-          console.error("Error updating metadata:", err);
-        }
-      }
 
       // Record stats for this file
       const fileExt = getFileType(file.originalname);
       recordUpload(file.size, fileExt);
 
-      // Return single file response
       return res.status(200).json({
         files: [
           {
@@ -1191,70 +1178,69 @@ app.post("/upload-multiple", uploadLimiter, (req, res) => {
         ],
         expiryDays: expiryDays,
       });
+    } else {
+      // Multiple files - create a collection
+      const collectionId = generateShortId();
+      const collectionDir = path.join(uploadsDir, collectionId);
+      fs.mkdirSync(collectionDir, { recursive: true });
+
+      // Create collection metadata
+      const collectionInfo = {
+        isCollection: true,
+        files: [],
+        uploadDate: new Date().toISOString(),
+        expiryDate: new Date(
+          Date.now() + expiryDays * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+        expiryDays: expiryDays,
+      };
+
+      // Process each file
+      const fileInfoList = [];
+      let totalSize = 0;
+
+      req.files.forEach((file) => {
+        fileInfoList.push({
+          fileId: file.fileId,
+          name: file.originalname,
+          url: file.fileId,
+        });
+
+        collectionInfo.files.push({
+          fileId: file.fileId,
+          name: file.originalname,
+          size: file.size,
+        });
+
+        // Record stats for each file
+        const fileExt = getFileType(file.originalname);
+        recordUpload(file.size, fileExt);
+        totalSize += file.size;
+      });
+
+      // Add total size to collection metadata
+      collectionInfo.totalSize = totalSize;
+
+      // Save collection metadata
+      fs.writeFileSync(
+        path.join(collectionDir, "metadata.json"),
+        JSON.stringify(collectionInfo),
+      );
+
+      // Log the collection upload
+      const clientIP = req.ip || req.socket.remoteAddress || "unknown";
+      const userAgent = req.get("User-Agent") || "unknown";
+      console.log(
+        `HTTP collection upload from ${clientIP} - ${req.files.length} files (${formatSize(totalSize)}) - Collection ID: ${collectionId} - Agent: ${userAgent}`,
+      );
+
+      // Return response with collection info
+      return res.status(200).json({
+        collectionId: collectionId,
+        files: fileInfoList,
+        expiryDays: expiryDays,
+      });
     }
-
-    // Multiple files case
-    const collectionId = generateShortId();
-    const collectionDir = path.join(uploadsDir, collectionId);
-    fs.mkdirSync(collectionDir, { recursive: true });
-
-    // Create metadata for the collection
-    const collectionInfo = {
-      isCollection: true,
-      files: [],
-      uploadDate: new Date().toISOString(),
-      expiryDate: new Date(
-        Date.now() + expiryDays * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-      expiryDays: expiryDays,
-    };
-
-    // Process each file and add to the collection
-    const fileInfoList = [];
-    let totalSize = 0;
-
-    req.files.forEach((file) => {
-      const fileExt = getFileType(file.originalname);
-      fileInfoList.push({
-        fileId: file.fileId,
-        name: file.originalname,
-        url: file.fileId,
-      });
-
-      collectionInfo.files.push({
-        fileId: file.fileId,
-        name: file.originalname,
-        // Add this line to store file size
-        size: file.size,
-      });
-
-      // Record stats for this file
-      recordUpload(file.size, fileExt);
-      totalSize += file.size;
-    });
-
-    // Also add total size to collection metadata
-    collectionInfo.totalSize = totalSize;
-
-    // Save collection metadata
-    fs.writeFileSync(
-      path.join(collectionDir, "metadata.json"),
-      JSON.stringify(collectionInfo),
-    );
-
-    // Add logging for collection
-    const clientIP = req.ip || req.socket.remoteAddress || "unknown";
-    const userAgent = req.get("User-Agent") || "unknown";
-    console.log(
-      `HTTP collection upload from ${clientIP} - ${req.files.length} files (${formatSize(totalSize)}) - Collection ID: ${collectionId} - Agent: ${userAgent}`,
-    );
-
-    // Return response with collection info
-    return res.status(200).json({
-      collectionId: collectionId,
-      files: fileInfoList,
-      expiryDays: expiryDays,
-    });
   });
 });
 
@@ -1264,7 +1250,6 @@ app.listen(PORT, () => {
   console.log(`Netcat server available on port ${NC_PORT}`);
 });
 
-// Function to clean up expired files
 function cleanupExpiredFiles() {
   console.log("Checking for expired files...");
 

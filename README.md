@@ -225,8 +225,7 @@ Inspired by:
 ## Screenshots
 
 ![Web UI Interface](https://raw.githubusercontent.com/jeebuscrossaint/slashbinslash.sh/main/webui2.png)
-
-*[Consider adding screenshots of a collection view and file view]*
+![Collection View](https://raw.githubusercontent.com/jeebuscrossaint/slashbinslash.sh/main/webui3.png)
 
 ---
 
