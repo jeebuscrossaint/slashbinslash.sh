@@ -1,86 +1,178 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>slashbinslash.sh - Temporary File Sharing</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="favicon.ico">
-</head>
-<body>
-    <div class="container">
-        <pre class="logo">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>slashbinslash.sh - Temporary File Sharing</title>
+        <link rel="stylesheet" href="style.css" />
+        <link rel="icon" href="favicon.ico" />
+    </head>
+    <body>
+        <div class="container">
+            <div class="header-section">
+                <pre class="logo">
     ██╗██████╗ ██╗███╗   ██╗    ██╗███████╗██╗  ██╗
    ██╔╝██╔══██╗██║████╗  ██║   ██╔╝██╔════╝██║  ██║
   ██╔╝ ██████╔╝██║██╔██╗ ██║  ██╔╝ ███████╗███████║
  ██╔╝  ██╔══██╗██║██║╚██╗██║ ██╔╝  ╚════██║██╔══██║
 ██╔╝   ██████╔╝██║██║ ╚████║██╔╝   ███████║██║  ██║
-╚═╝    ╚═════╝ ╚═╝╚═╝  ╚═══╝╚═╝    ╚══════╝╚═╝  ╚═╝
-        </pre>
-        
-        <div class="tagline">~everything is temporary~</div>
-        
-        <div class="upload-section">
-            <div class="cmd-upload">
-                <h3>To upload from command line:</h3>
-                <code>curl -F "file=@yourfile.txt" https://slashbinslash.sh/upload</code>
-                <p>or pipe output:</p>
-                <code>command | curl -F "file=@-" https://slashbinslash.sh/upload</code>
-                <p>or use netcat:</p>
-                <code>echo "hello world" | nc slashbinslash.sh 9999</code>
-                <code>cat file.txt | nc slashbinslash.sh 9999</code>
+╚═╝    ╚═════╝ ╚═╝╚═╝  ╚═══╝╚═╝    ╚══════╝╚═╝  ╚═╝</pre
+                >
+                <div class="tagline">~everything is temporary~</div>
             </div>
-            
-            <div class="web-upload">
-                <h3>Upload through browser:</h3>
-                <form id="upload-form">
-                        <div class="custom-file-input">
-                                <input type="file" id="file-input" name="file" multiple>
-                                <label for="file-input"><span>Select file(s)...</span></label>
+
+            <div class="main-content">
+                <div class="upload-section">
+                    <div class="web-upload">
+                        <h3>Upload</h3>
+                        <form id="upload-form">
+                            <div class="form-row">
+                                <div class="custom-file-input">
+                                    <input
+                                        type="file"
+                                        id="file-input"
+                                        name="file"
+                                        multiple
+                                    />
+                                    <label for="file-input"
+                                        ><span>Select file(s)...</span></label
+                                    >
+                                </div>
+                                <div class="expiry-selection">
+                                    <select
+                                        id="expiry-select"
+                                        name="expiry"
+                                        title="Expires after"
+                                    >
+                                        <option value="1">1d</option>
+                                        <option value="3">3d</option>
+                                        <option value="7" selected>7d</option>
+                                        <option value="14">14d</option>
+                                    </select>
+                                </div>
+                                <button type="submit">Upload</button>
                             </div>
-                            <div class="file-name" id="selected-file">No files selected</div>
-                        
-                        <!-- Add expiry selection dropdown -->
-                        <div class="expiry-selection">
-                            <label for="expiry-select">Expires after:</label>
-                            <select id="expiry-select" name="expiry">
-                                <option value="1">1 day</option>
-                                <option value="3">3 days</option>
-                                <option value="7" selected>7 days</option>
-                                <option value="14">14 days</option>
-                            </select>
+                            <div class="file-name" id="selected-file">
+                                No files selected
+                            </div>
+                        </form>
+                        <div id="upload-result"></div>
+                    </div>
+                </div>
+
+                <div class="tabs-container">
+                    <div class="tabs">
+                        <button class="tab-button active" data-tab="cli">
+                            CLI
+                        </button>
+                        <button class="tab-button" data-tab="scripts">
+                            Scripts
+                        </button>
+                        <button class="tab-button" data-tab="about">
+                            About
+                        </button>
+                    </div>
+
+                    <div class="tab-content active" id="cli-tab">
+                        <div class="cmd-examples">
+                            <h4>curl</h4>
+                            <code
+                                >curl -F "file=@file.txt"
+                                https://slashbinslash.sh/upload</code
+                            >
+                            <code
+                                >echo "text" | curl -F "file=@-"
+                                https://slashbinslash.sh/upload</code
+                            >
+
+                            <h4>netcat</h4>
+                            <code
+                                >echo "hello world" | nc slashbinslash.sh
+                                9999</code
+                            >
+                            <code>cat file.txt | nc slashbinslash.sh 9999</code>
                         </div>
-                        
-                        <button type="submit">Upload</button>
-                    </form>
-                <div id="upload-result"></div>
+                    </div>
+
+                    <div class="tab-content" id="scripts-tab">
+                        <div class="script-info">
+                            <h4>Bash (Linux/Mac)</h4>
+                            <code
+                                >curl -o ~/bin/sbs.sh
+                                https://slashbinslash.sh/up.sh && chmod +x
+                                ~/bin/sbs.sh</code
+                            >
+                            <div class="script-examples">
+                                <code>sbs.sh file.txt</code>
+                                <code>sbs.sh *.pdf</code>
+                                <code>cat file | sbs.sh</code>
+                            </div>
+
+                            <h4>PowerShell (Windows)</h4>
+                            <code
+                                >Invoke-WebRequest -Uri
+                                https://slashbinslash.sh/up.ps1 -OutFile
+                                up.ps1</code
+                            >
+                            <div class="script-examples">
+                                <code>.\up.ps1 file.txt</code>
+                                <code>.\up.ps1 *.pdf</code>
+                                <code>Get-Content file | .\up.ps1</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="about-tab">
+                        <div class="about-info">
+                            <p>
+                                slashbinslash.sh is a simple, temporary file
+                                sharing service.
+                            </p>
+                            <p>• Files expire after 7 days (configurable)</p>
+                            <p>• Maximum file size: 100MB</p>
+                            <p>• Support for multiple file uploads</p>
+                            <p>• No registration required</p>
+                            <p class="credit">
+                                Inspired by temp.sh and termbin.com
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        
-        <div class="info-section">
-            <div class="info-box">
-                <h3>About</h3>
-                <p>slashbinslash.sh is a simple, temporary file sharing service.</p>
-                <p>Files expire after 7 days.</p>
-                <p>Maximum file size: 100MB.</p>
-                <p>Inspired by temp.sh and termbin.com.</p>
-            </div>
-            
-            <div class="info-box">
-                <h3>Command line script</h3>
-                <p>Download our bash script for easier uploads:</p>
-                <code>curl -o ~/bin/sbs.sh https://slashbinslash.sh/up.sh && chmod +x ~/bin/sbs.sh</code>
-                <p>Then use it like:</p>
-                <code>cat file.txt | sbs.sh</code>
-                <p>or</p>
-                <code>sbs.sh file.txt</code>
-            </div>
-        </div>
-    </div>
-    <footer>
-        <p>&copy; 2025 slashbinslash.sh | <a href="https://github.com/jeebuscrossaint/slashbinslash.sh">GitHub</a></p>
-    </footer>
-    <script src="script.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-</body>
+        <footer>
+            <p>
+                &copy; 2025 slashbinslash.sh |
+                <a href="https://github.com/jeebuscrossaint/slashbinslash.sh"
+                    >GitHub</a
+                >
+            </p>
+        </footer>
+
+        <script src="script.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+        <script>
+            // Tab switching functionality
+            document.querySelectorAll(".tab-button").forEach((button) => {
+                button.addEventListener("click", () => {
+                    // Remove active class from all buttons and contents
+                    document
+                        .querySelectorAll(".tab-button")
+                        .forEach((b) => b.classList.remove("active"));
+                    document
+                        .querySelectorAll(".tab-content")
+                        .forEach((c) => c.classList.remove("active"));
+
+                    // Add active class to clicked button
+                    button.classList.add("active");
+
+                    // Show corresponding content
+                    const tabId = button.getAttribute("data-tab");
+                    document
+                        .getElementById(`${tabId}-tab`)
+                        .classList.add("active");
+                });
+            });
+        </script>
+    </body>
 </html>
