@@ -5,19 +5,11 @@ services:
     build: .
     container_name: slashbinslash
     ports:
-      - "${PORT:-3000}:3000"
-      - "${NC_PORT:-9999}:9999"
+      - "3000:3000"
+      - "9999:9999"
     volumes:
       - ./uploads:/app/uploads
       - ./stats.json:/app/stats.json
-    environment:
-      - PORT=3000
-      - NC_PORT=9999
-      - HOST=${HOST:-localhost}
-      - UPLOAD_DIR=/app/uploads
-      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-104857600}
-      - DEFAULT_EXPIRY_DAYS=${DEFAULT_EXPIRY_DAYS:-7}
-      - MAX_EXPIRY_DAYS=${MAX_EXPIRY_DAYS:-14}
     restart: unless-stopped
     networks:
       - slashbin-network
